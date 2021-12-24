@@ -1,0 +1,146 @@
+import requests
+from bs4 import BeautifulSoup
+import time
+import collections
+import json
+
+
+def main():
+	url1 = 'http://blog.castman.net/web-crawler-tutorial/ch1/connect.html'
+	bad_url = 'http://non-existed.domain/connet.html'
+	text1 = get_tag_text(url1, 'h1')
+	print(text1)
+	text2 = get_tag_text(url1, 'h2')
+	print(text2)
+	text3 = get_tag_text(bad_url, 'h1')
+	print(text3)
+
+def clientDB(database):
+	client = MongoClient()
+	db = client[database]
+	return db
+
+def clientCT(database, collection):
+	ct = clientDB(database)[collection]
+	return ct
+
+def get_tag_text(url, tag, ct):
+	try:
+		resp = requests.get(url)
+		if resp.status_code == 200:
+			soup = BeautifulSoup(resp.text, 'html.parser')
+			#print(soup.find(tag).text)
+			
+			#找出股票代碼
+			str1 = str(soup.table.div)
+			#print(str1)
+			b_stockno = str1.find(' ')	#找第1個空格，在股票代碼前 before_stockno
+			a_stockno = str1.find(' ', b_stockno+1)	#找第2個空格，在股票代碼後	after_stockno
+			#print("b_stockno:", b_stockno)
+			#print("a_stockno:", a_stockno)
+			stockno = str1[(b_stockno+1):(a_stockno+1)]
+			print("stockno:", stockno)
+
+			#找出股票名稱
+			a_stockname = str1.find(' ', a_stockno+1)
+			#print(a_stockno+1)
+			#print(a_stockname+1)
+			stockname = str1[(a_stockno+1):(a_stockname+1)]
+			print("stockname:", stockname)
+
+			#找出股票各項資料
+			x = soup.find_all('td')
+			#print(x)
+			#print(type(x))
+			
+			i = 0
+			while i < len(x):
+				if i > 8:
+					if (i)%9 == 0:
+						print(x[i])
+						day_no_b = str(x[i]).find('td')
+						#print(day_no_b)	
+						day_no_a = str(x[i]).find('/td')
+						#print(day_no_a)	
+						day = str(x[i])[day_no_b+3:day_no_a-1]
+						day = str(int(day[:3])+1911)+day[3:]
+						day = datetime.strptime(day, '%Y/%m/%d')
+						print('date:', day)
+					elif (i-1)%9 == 0:
+						volume_no_b = str(x[i]).find('td')
+						volume_no_a = str(x[i]).find('/td')
+						volume = str(x[i])[volume_no_b+3:volume_no_a-1]
+						volume = volume.replace(',', '')
+						print('volume:', volume)
+					elif (i-2)%9 == 0:
+						money_no_b = str(x[i]).find('td')
+						money_no_a = str(x[i]).find('/td')
+						money = str(x[i])[money_no_b+3:money_no_a-1]
+						money = money.replace(',', '')
+						print('money:', money)
+					elif (i-3)%9 == 0:
+						start_price_no_b = str(x[i]).find('td')
+						start_price_no_a = str(x[i]).find('/td')
+						start_price = str(x[i])[start_price_no_b+3:start_price_no_a-1]
+						print('start_price:', start_price)
+					elif (i-4)%9 == 0:
+						max_price_no_b = str(x[i]).find('td')
+						max_price_no_a = str(x[i]).find('/td')
+						max_price = str(x[i])[max_price_no_b+3:max_price_no_a-1]
+						print('max_price:', max_price)
+					elif (i-5)%9 == 0:
+						min_price_no_b = str(x[i]).find('td')
+						min_price_no_a = str(x[i]).find('/td')
+						min_price = str(x[i])[min_price_no_b+3:min_price_no_a-1]
+						print('min_price:', min_price)
+					elif (i-6)%9 == 0:
+						end_price_no_b = str(x[i]).find('td')
+						end_price_no_a = str(x[i]).find('/td')
+						end_price = str(x[i])[end_price_no_b+3:end_price_no_a-1]
+						print('end_price:', end_price)
+					elif (i-7)%9 == 0:
+						price_range_no_b = str(x[i]).find('td')
+						price_range_no_a = str(x[i]).find('/td')
+						price_range = str(x[i])[price_range_no_b+3:price_range_no_a-1]
+						print('price_range:', price_range)
+					elif (i-8)%9 == 0:
+						count_no_b = str(x[i]).find('td')
+						count_no_a = str(x[i]).find('/td')
+						count = str(x[i])[count_no_b+3:count_no_a-1]
+						count = count.replace(',', '')
+						print('count:', count)
+
+					if i > 9 and i%9 == 0:
+						stock_data = {"stock_no":stockno,
+									  "stock_name":stockname,
+									  "date":day,
+									  "volume":int(volume),
+									  "money":int(money),
+									  "start_price":float(start_price),
+									  "max_price":float(max_price),
+									  "min_price":float(min_price),
+									  "end_price":float(end_price),
+									  "price_range":float(price_range),
+									  "count":int(count)
+									  }
+						ct.update_one({'stock_no':stockno, 'date':day},{"$set":stock_data},upsert=True)
+				i += 1
+
+	except Exception as e:
+		print('Exception: %s' %(e))
+	return None
+
+if __name__ == '__main__':
+	database = 'stock'
+	collection = 'stockdata'
+	db = clientDB(database)
+	ct = clientCT(database, collection)
+	
+	for month in range(1, 13):
+		month = str(month)
+		if len(month) < 2:
+			month = '0%s' %month
+		url = 'https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=html&date=2020%s01&stockNo=2330' %month
+		print(url)
+		get_tag_text(url, 'table', ct)
+		#get_tag_text('https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=html&date=20200707&stockNo=2330', 'table')
