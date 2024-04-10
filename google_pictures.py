@@ -3,18 +3,20 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 import csv
 import time
 import os
 import selenium
-
+import urllib
 
 
 
 if __name__ == '__main__':
     url = 'https://www.google.com.tw/imghp?hl=zh-TW&tab=wi'
-    findWords = ('青蛙', '蟾蜍', '螞蟻', '蟻象')
+    findWords = ('frog', '蟾蜍', '螞蟻', '蟻象')
     
     
     # 取消網頁中的彈出視窗，避免妨礙網路爬蟲的執行
@@ -33,21 +35,35 @@ if __name__ == '__main__':
     searchEntry.send_keys(Keys.ENTER)
     
     browser.implicitly_wait(5) # seconds
-    # 取得圖檔路徑
-    # Find the parent <a> element that contains the image
-    parent_element = browser.find_element(By.XPATH, '//div[@class="fR600b islir"]')
+    
+    # 模擬滾動視窗瀏覽更多圖片
+    pos = 0  
+    count = 0 # 圖片編號 
+    for i in range(3):  
+        pos += i*500 # 每次下滾500  
+        js = "document.documentElement.scrollTop=%d" % pos  
+        browser.execute_script(js)
+        time.sleep(3)
 
-    # Get the href attribute of the parent <a> element
-    href_attribute = parent_element.get_attribute('href')
-
-    # Extract the imgurl parameter from the href attribute
-    imgurl_param = href_attribute.split('imgurl=')[1].split('&')[0]
-
-    # Print or use the imgurl_param as needed
-    print(imgurl_param)
-
+        #WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'Q4LuWd')))
+    j = 1
+    while 1:
+        img = browser.find_element(By.XPATH, '/html/body/div[4]/div/div[12]/div/div[2]/div[2]/div/div/div/div/div[1]/div/div/div[%d]/div[2]/h3/a/div/div/div/g-img/img' %j)
+        #imgs = browser.find_elements(By.CLASS_NAME,'Q4LuWd')
+    
+        # 取得圖檔路徑
+        #os.makedirs('./imgs')
+        imgUrl = img.get_attribute("src")
+        if imgUrl is not None:
+            count += 1
+            save_img = os.path.join('./imgs', findWords[0]+str(count)+'.jpg')
+            #圖片之開啟並儲存
+            with urllib.request.urlopen(imgUrl) as r:
+                data = r.read()
+                with open(save_img, "wb") as f:
+                    f.write(data)
+        j += 1            
     os._exit(0)
-
 
 
 
