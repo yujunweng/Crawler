@@ -11,7 +11,7 @@ import time
 import os
 import selenium
 import urllib
-
+import traceback
 
 
 if __name__ == '__main__':
@@ -39,35 +39,50 @@ if __name__ == '__main__':
     # 模擬滾動視窗瀏覽更多圖片
     pos = 0  
     count = 0 # 圖片編號 
-    for i in range(3):  
+    
+    for i in range(10):  
         pos += i*500 # 每次下滾500  
         js = "document.documentElement.scrollTop=%d" % pos  
         browser.execute_script(js)
         time.sleep(3)
 
         #WebDriverWait(browser, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'Q4LuWd')))
-    j = 1
-    while 1:
-        img = browser.find_element(By.XPATH, '/html/body/div[4]/div/div[12]/div/div[2]/div[2]/div/div/div/div/div[1]/div/div/div[%d]/div[2]/h3/a/div/div/div/g-img/img' %j)
-        #imgs = browser.find_elements(By.CLASS_NAME,'Q4LuWd')
     
+    
+    savePath = "./imgs"
+    if not os.path.isdir(savePath):
+        os.mkdir(savePath)
+    reightXPath = False    
+    j = 1
+    k = 4
+    while 1:
+        try:
+            img = browser.find_element(By.XPATH, '/html/body/div[%d]/div/div[13]/div/div[2]/div[2]/div/div/div/div/div[1]/div/div/div[%d]/div[2]/h3/a/div/div/div/g-img/img' %(k, j)) 
+            #imgs = browser.find_elements(By.CLASS_NAME,'Q4LuWd')
+        except selenium.common.exceptions.NoSuchElementException:
+            if not rightXPath:
+                k += 1
+                print('k=', k)
+            else:
+                j += 1
+                print('j=', j)
+            img = browser.find_element(By.XPATH, '/html/body/div[%d]/div/div[13]/div/div[2]/div[2]/div/div/div/div/div[1]/div/div/div[%d]/div[2]/h3/a/div/div/div/g-img/img' %(k, j))
+        
+        except:
+            traceback.print_exc()
+            os._exit(0)
+            
         # 取得圖檔路徑
         #os.makedirs('./imgs')
+        rightXPath = True
         imgUrl = img.get_attribute("src")
         if imgUrl is not None:
-            count += 1
-            save_img = os.path.join('./imgs', findWords[0]+str(count)+'.jpg')
+            save_img = os.path.join(savePath, findWords[0]+str(count)+'.jpg')
             #圖片之開啟並儲存
             with urllib.request.urlopen(imgUrl) as r:
                 data = r.read()
                 with open(save_img, "wb") as f:
                     f.write(data)
-        j += 1            
-    os._exit(0)
-
-
-
-
-
-
-
+            count += 1        
+            j += 1            
+            time.sleep(0.5)
